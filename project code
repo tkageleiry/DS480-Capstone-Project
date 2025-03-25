@@ -1,0 +1,3 @@
+library(readxl)
+complete_energy_data_R <- read_excel("Desktop/ds480 project/complete_energy_data_R.xlsx")
+View(complete_energy_data_R)
