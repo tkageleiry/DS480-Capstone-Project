@@ -1,3 +1,42 @@
 library(readxl)
 complete_energy_data_R <- read_excel("Desktop/ds480 project/complete_energy_data_R.xlsx")
 View(complete_energy_data_R)
+
+## interpolating missing values from the jet fuel prices and aviation gas price columns
+
+library(zoo)
+library(tseries)
+library(tidyverse)
+library(forecast)
+library(lubridate)
+interpolated_df <- complete_energy_data_R
+interpolated_df$JetFuelPrice <- na.locf(interpolated_df$JetFuelPrice, na.rm = FALSE)
+interpolated_df$JetFuelPrice <- na.approx(interpolated_df$JetFuelPrice)
+view(interpolated_df)
+
+interpolated_df$AviationGasPrice <- na.locf(interpolated_df$AviationGasPrice, na.rm =FALSE)
+interpolated_df$AviationGasPrice <- na.approx(interpolated_df$AviationGasPrice)
+view(interpolated_df)
+
+
+## breaking my dataset into time series objects for each dependent variable (that i will use for each TF model) 
+df <- interpolated_df
+df$month <- as.Date(df$Month, format="%Y-%m-%d")
+
+
+start_year <- as.numeric(format(df$Month[1], "%Y"))
+start_month <- as.numeric(format(df$Month[1], "%m"))
+
+## make each dependent variable into a time series 
+ts_res <- ts(df$TECresidential, start=c(start_year, start_month), frequency=12)
+ts_com <- ts(df$TECcommercial, start=c(start_year, start_month), frequency=12)
+ts_ind <- ts(df$TECindustrial, start=c(start_year, start_month), frequency=12)
+ts_trans <- ts(df$TECtransportation, start=c(start_year, start_month), frequency=12)
+ts_all <- ts(df$TECAll, start=c(start_year, start_month), frequency=12)
+
+## make predictor variables into a time series 
+x_vars_res <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPresidential")], start=c(start_year, start_month), frequency=12)
+x_vars_com <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPcommercial")], start=c(start_year, start_month), frequency=12)
+x_vars_ind <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPindustrial")], start=c(start_year, start_month), frequency=12)
+x_vars_trans <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "GasPrice", "JetFuelPrice","DieselPrice", "AviationGasPrice")], start=c(start_year, start_month), frequency=12)
+x_vars_all <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPresidential", "NGPcommercial","NGPindustrial","GasPrice","JetFuelPrice","DieselPrice","AviationGasPrice" )], start=c(start_year, start_month), frequency=12)
