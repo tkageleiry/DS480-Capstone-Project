@@ -1,8 +1,10 @@
-library(readxl)
-complete_energy_data_R <- read_excel("Desktop/ds480 project/complete_energy_data_R.xlsx")
-View(complete_energy_data_R)
-
 ## interpolating missing values from the jet fuel prices and aviation gas price columns
+
+install.packages("zoo")
+install.packages("tseries")
+install.packages("tidyverse")
+install.packages("forecast")
+install.packages("lubridate")
 
 library(zoo)
 library(tseries)
@@ -34,9 +36,35 @@ ts_ind <- ts(df$TECindustrial, start=c(start_year, start_month), frequency=12)
 ts_trans <- ts(df$TECtransportation, start=c(start_year, start_month), frequency=12)
 ts_all <- ts(df$TECAll, start=c(start_year, start_month), frequency=12)
 
-## make predictor variables into a time series 
-x_vars_res <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPresidential")], start=c(start_year, start_month), frequency=12)
-x_vars_com <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPcommercial")], start=c(start_year, start_month), frequency=12)
-x_vars_ind <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPindustrial")], start=c(start_year, start_month), frequency=12)
-x_vars_trans <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "GasPrice", "JetFuelPrice","DieselPrice", "AviationGasPrice")], start=c(start_year, start_month), frequency=12)
-x_vars_all <- ts(df[, c("totalCDD", "totalHDD", "ElectricityPrice", "NGPresidential", "NGPcommercial","NGPindustrial","GasPrice","JetFuelPrice","DieselPrice","AviationGasPrice" )], start=c(start_year, start_month), frequency=12)
+## make predictor variables into their own time series 
+ts_totalCDD <- ts(df$totalCDD, start=c(start_year, start_month), frequency=12)
+ts_totalHDD <- ts(df$totalHDD, start=c(start_year, start_month), frequency=12)
+ts_ElectricityPrice <-ts(df$ElectricityPrice, start=c(start_year, start_month), frequency=12)
+ts_NGPresidential <-ts(df$NGPresidential, start=c(start_year, start_month), frequency=12)
+ts_NGPcommercial <-ts(df$NGPcommercial, start=c(start_year, start_month), frequency=12)
+ts_NGPindustrial <-ts(df$NGPindustrial, start=c(start_year, start_month), frequency=12)
+ts_GasPrice <-ts(df$GasPrice, start=c(start_year, start_month), frequency=12)
+ts_JetFuelPrice <-ts(df$JetFuelPrice, start=c(start_year, start_month), frequency=12)
+ts_DieselPrice <- ts(df$DieselPrice, start=c(start_year, start_month), frequency=12)
+ts_AviationGasPrice <- ts(df$AviationGasPrice, start=c(start_year, start_month), frequency=12)
+
+## check time series for stationarity 
+adf.test(ts_res) #stationary
+adf.test(ts_com) #stationary
+adf.test(ts_ind) #requires differencing
+adf.test(ts_trans) #requires differencinh
+adf.test(ts_all) #stationary
+
+## list of all my dependent variable time series 
+ts_res <- ts(df$TECresidential, start=c(start_year, start_month), frequency=12)
+ts_com <- ts(df$TECcommercial, start=c(start_year, start_month), frequency=12)
+ts_ind <- diff(ts(df$TECindustrial, start=c(start_year, start_month), frequency=12))
+ts_trans <- diff(ts(df$TECtransportation, start=c(start_year, start_month), frequency=12))
+ts_all <- ts(df$TECAll, start=c(start_year, start_month), frequency=12)
+
+# the variables i am going to include in tfm for each sector are as follows: 
+## residential: totalCDD, totalHDD, ElectricityPrice, NGPresidential
+## commercial: totalCDD, totalHDD, ElectricityPrice, NGPcommercial
+## industrial: totalCDD, totalHDD, ElectricityPrice, NGPindustrial
+## transportation: totalCDD, totalHDD, ElectricityPrice, GasPrice, JetFuelPrice, DieselPrice, AviationGasPrice
+## all sectors: all of those ^^ 
