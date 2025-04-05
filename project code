@@ -5,36 +5,22 @@ install.packages("tseries")
 install.packages("tidyverse")
 install.packages("forecast")
 install.packages("lubridate")
+install.packages("TSA")
 
 library(zoo)
 library(tseries)
 library(tidyverse)
 library(forecast)
 library(lubridate)
+library(TSA)
 interpolated_df <- complete_energy_data_R
-interpolated_df$JetFuelPrice <- na.locf(interpolated_df$JetFuelPrice, na.rm = FALSE)
-interpolated_df$JetFuelPrice <- na.approx(interpolated_df$JetFuelPrice)
-view(interpolated_df)
-
-interpolated_df$AviationGasPrice <- na.locf(interpolated_df$AviationGasPrice, na.rm =FALSE)
-interpolated_df$AviationGasPrice <- na.approx(interpolated_df$AviationGasPrice)
-view(interpolated_df)
-
 
 ## breaking my dataset into time series objects for each dependent variable (that i will use for each TF model) 
 df <- interpolated_df
 df$month <- as.Date(df$Month, format="%Y-%m-%d")
 
-
 start_year <- as.numeric(format(df$Month[1], "%Y"))
 start_month <- as.numeric(format(df$Month[1], "%m"))
-
-## make each dependent variable into a time series 
-ts_res <- ts(df$TECresidential, start=c(start_year, start_month), frequency=12)
-ts_com <- ts(df$TECcommercial, start=c(start_year, start_month), frequency=12)
-ts_ind <- ts(df$TECindustrial, start=c(start_year, start_month), frequency=12)
-ts_trans <- ts(df$TECtransportation, start=c(start_year, start_month), frequency=12)
-ts_all <- ts(df$TECAll, start=c(start_year, start_month), frequency=12)
 
 ## make predictor variables into their own time series 
 ts_totalCDD <- ts(df$totalCDD, start=c(start_year, start_month), frequency=12)
@@ -48,23 +34,82 @@ ts_JetFuelPrice <-ts(df$JetFuelPrice, start=c(start_year, start_month), frequenc
 ts_DieselPrice <- ts(df$DieselPrice, start=c(start_year, start_month), frequency=12)
 ts_AviationGasPrice <- ts(df$AviationGasPrice, start=c(start_year, start_month), frequency=12)
 
-## check time series for stationarity 
-adf.test(ts_res) #stationary
-adf.test(ts_com) #stationary
-adf.test(ts_ind) #requires differencing
-adf.test(ts_trans) #requires differencinh
-adf.test(ts_all) #stationary
-
-## list of all my dependent variable time series 
+## make dependent variable into a time series 
 ts_res <- ts(df$TECresidential, start=c(start_year, start_month), frequency=12)
-ts_com <- ts(df$TECcommercial, start=c(start_year, start_month), frequency=12)
-ts_ind <- diff(ts(df$TECindustrial, start=c(start_year, start_month), frequency=12))
-ts_trans <- diff(ts(df$TECtransportation, start=c(start_year, start_month), frequency=12))
-ts_all <- ts(df$TECAll, start=c(start_year, start_month), frequency=12)
 
-# the variables i am going to include in tfm for each sector are as follows: 
-## residential: totalCDD, totalHDD, ElectricityPrice, NGPresidential
-## commercial: totalCDD, totalHDD, ElectricityPrice, NGPcommercial
-## industrial: totalCDD, totalHDD, ElectricityPrice, NGPindustrial
-## transportation: totalCDD, totalHDD, ElectricityPrice, GasPrice, JetFuelPrice, DieselPrice, AviationGasPrice
-## all sectors: all of those ^^ 
+## check time series for stationarity 
+adf.test(ts_res) #its stationary
+
+## visualize time series
+plot(ts_res)
+
+## need to prewhiten each predictor variable against its respective sector 
+## CDD
+arima_CDD <- auto.arima(ts_totalCDD)
+prewhitened_CDD <- residuals(arima_CDD)
+filtered_y_CDD <- residuals(Arima(ts_res, model=arima_CDD))
+## show ccf 
+ccf(prewhitened_CDD, filtered_y_CDD, main="CCF: Prewhitened CDD vs TECresidential")
+
+## HDD
+arima_HDD <- auto.arima(ts_totalHDD)
+prewhitened_HDD <- residuals(arima_HDD)
+filtered_y_HDD <- residuals(Arima(ts_res, model=arima_HDD))
+## show ccf 
+ccf(prewhitened_HDD, filtered_y_HDD, main="CCF: Prewhitened HDD vs TECresidential")
+
+## Electricity Price 
+arima_ElectricityPrice <- auto.arima(ts_ElectricityPrice)
+prewhitened_ElectricityPrice <- residuals(arima_ElectricityPrice)
+filtered_y_ElectricityPrice <- residuals(Arima(ts_res, model=arima_ElectricityPrice))
+## show ccf 
+ccf(prewhitened_ElectricityPrice, filtered_y_ElectricityPrice, main="CCF: Prewhitened Electricity Price vs TECresidential")
+
+## NGP residential 
+arima_NGPresidential <- auto.arima(ts_NGPresidential)
+prewhitened_NGPresidential <- residuals(arima_NGPresidential)
+filtered_y_NGPresidential <- residuals(Arima(ts_res, model=arima_NGPresidential))
+## show ccf 
+ccf(prewhitened_NGPresidential, filtered_y_NGPresidential, main="CCF: Prewhitened NGP residential vs TECresidential")
+
+## residential tfms
+## HDD
+res_tfm_HDD <- arimax(ts_res, 
+                      xtransf = ts_totalHDD, 
+                      transfer = list(c(0,0)),
+                      order = c(1,0,1), 
+                      method = "ML")
+
+summary(res_tfm_HDD)
+AIC(res_tfm_HDD)
+## Electricity Price
+res_tfm_ElecPrice <- arimax(ts_res, 
+                            xtransf = stats::lag(ts_ElectricityPrice, -1), # Use stats::lag()
+                            transfer = list(c(0,0)), 
+                            order = c(1,0,1), 
+                            method = "ML")
+
+summary(res_tfm_ElecPrice)
+AIC(res_tfm_ElecPrice)
+## NGP
+res_tfm_NGP <- arimax(ts_res, 
+                            xtransf = ts_NGPresidential, 
+                            transfer = list(c(0,0)), 
+                            order = c(1,0,1), 
+                            method = "ML")
+
+summary(res_tfm_NGP)
+AIC(res_tfm_NGP)
+
+## visualize the TFM forecasts
+forecast_HDD <- predict(res_tfm_HDD, n.ahead = 36)
+forecast_ElecPrice <- predict(res_tfm_ElecPrice, n.ahead = 36)
+forecast_NGP <- predict(res_tfm_NGP, n.ahead = 36)
+
+# Plot forecasts
+ts.plot(ts_res, forecast_HDD$pred, col=c("black", "blue"), lty=c(1,2), 
+        main="Forecast: HDD-based TFM")
+ts.plot(ts_res, forecast_ElecPrice$pred, col=c("black", "red"), lty=c(1,2), 
+        main="Forecast: Electricity Price-based TFM")
+ts.plot(ts_res, forecast_NGP$pred, col=c("black", "red"), lty =c(1,2),
+        main = "Forecast: NGP - based TFM")
