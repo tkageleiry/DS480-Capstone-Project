@@ -11,10 +11,10 @@ library(tidyverse)
 library(forecast)
 library(lubridate)
 library(TSA)
-interpolated_df <- complete_energy_data_R
+
 
 ## breaking my dataset into time series objects for each dependent variable (that i will use for each TF model) 
-df <- interpolated_df
+df <- complete_energy_data_R
 df$month <- as.Date(df$Month, format="%Y-%m-%d")
 
 start_year <- as.numeric(format(df$Month[1], "%Y"))
@@ -243,4 +243,3 @@ forecast_NGP
 
 ## plot forecasts
 plot(forecast_HDD, include = 60)
-
