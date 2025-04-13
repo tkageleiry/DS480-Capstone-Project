@@ -1,5 +1,3 @@
-## interpolating missing values from the jet fuel prices and aviation gas price columns
-
 install.packages("zoo")
 install.packages("tseries")
 install.packages("tidyverse")
@@ -27,12 +25,6 @@ ts_totalCDD <- ts(df$totalCDD, start=c(start_year, start_month), frequency=12)
 ts_totalHDD <- ts(df$totalHDD, start=c(start_year, start_month), frequency=12)
 ts_ElectricityPrice <-ts(df$ElectricityPrice, start=c(start_year, start_month), frequency=12)
 ts_NGPresidential <-ts(df$NGPresidential, start=c(start_year, start_month), frequency=12)
-ts_NGPcommercial <-ts(df$NGPcommercial, start=c(start_year, start_month), frequency=12)
-ts_NGPindustrial <-ts(df$NGPindustrial, start=c(start_year, start_month), frequency=12)
-ts_GasPrice <-ts(df$GasPrice, start=c(start_year, start_month), frequency=12)
-ts_JetFuelPrice <-ts(df$JetFuelPrice, start=c(start_year, start_month), frequency=12)
-ts_DieselPrice <- ts(df$DieselPrice, start=c(start_year, start_month), frequency=12)
-ts_AviationGasPrice <- ts(df$AviationGasPrice, start=c(start_year, start_month), frequency=12)
 
 ## make dependent variable into a time series 
 ts_res <- ts(df$TECresidential, start=c(start_year, start_month), frequency=12)
@@ -52,14 +44,29 @@ filtered_y_CDD <- residuals(Arima(ts_res, model=arima_CDD))
 ccf(prewhitened_CDD, filtered_y_CDD, main="CCF: Prewhitened CDD vs TECresidential")
 
 ## HDD
-arima_HDD <- auto.arima(ts_totalHDD)
+arima_HDD <- auto.arima(ts_totalHDD, seasonal = TRUE)
+## check acf of residuals , should be white noise 
+acf(arima_HDD$residuals)
+plot(arima_HDD$residuals)
+
+exoForecast_HDD <- forecast(arima_HDD, h=12, level =0.90)
+plot(exoForecast_HDD, include = 60)
+
 prewhitened_HDD <- residuals(arima_HDD)
 filtered_y_HDD <- residuals(Arima(ts_res, model=arima_HDD))
+
 ## show ccf 
 ccf(prewhitened_HDD, filtered_y_HDD, main="CCF: Prewhitened HDD vs TECresidential")
 
 ## Electricity Price 
 arima_ElectricityPrice <- auto.arima(ts_ElectricityPrice)
+
+acf(arima_ElectricityPrice$residuals)
+plot(arima_ElectricityPrice$residuals)
+
+exoForecast_ElectricityPrice <- forecast(arima_ElectricityPrice, h=12, level =0.90)
+plot(exoForecast_ElectricityPrice, include = 60)
+
 prewhitened_ElectricityPrice <- residuals(arima_ElectricityPrice)
 filtered_y_ElectricityPrice <- residuals(Arima(ts_res, model=arima_ElectricityPrice))
 ## show ccf 
@@ -67,6 +74,13 @@ ccf(prewhitened_ElectricityPrice, filtered_y_ElectricityPrice, main="CCF: Prewhi
 
 ## NGP residential 
 arima_NGPresidential <- auto.arima(ts_NGPresidential)
+
+acf(arima_NGPresidential$residuals)
+plot(arima_NGPresidential$residuals)
+
+exoForecast_NGP <- forecast(arima_NGPresidential, h=12, level =0.90)
+plot(exoForecast_NGP, include = 60)
+
 prewhitened_NGPresidential <- residuals(arima_NGPresidential)
 filtered_y_NGPresidential <- residuals(Arima(ts_res, model=arima_NGPresidential))
 ## show ccf 
@@ -79,7 +93,7 @@ res_tfm_HDD <- arimax(ts_res,
                       transfer = list(c(0,0)),
                       order = c(1,0,1), 
                       method = "ML")
-
+## check ccf of residuals 
 summary(res_tfm_HDD)
 AIC(res_tfm_HDD)
 ## Electricity Price
@@ -88,7 +102,7 @@ res_tfm_ElecPrice <- arimax(ts_res,
                             transfer = list(c(0,0)), 
                             order = c(1,0,1), 
                             method = "ML")
-
+## check ccf of residuals 
 summary(res_tfm_ElecPrice)
 AIC(res_tfm_ElecPrice)
 ## NGP
@@ -102,14 +116,131 @@ summary(res_tfm_NGP)
 AIC(res_tfm_NGP)
 
 ## visualize the TFM forecasts
-forecast_HDD <- predict(res_tfm_HDD, n.ahead = 36)
-forecast_ElecPrice <- predict(res_tfm_ElecPrice, n.ahead = 36)
-forecast_NGP <- predict(res_tfm_NGP, n.ahead = 36)
+install.packages("zoo")
+install.packages("tseries")
+install.packages("tidyverse")
+install.packages("forecast")
+install.packages("lubridate")
+install.packages("TSA")
 
-# Plot forecasts
-ts.plot(ts_res, forecast_HDD$pred, col=c("black", "blue"), lty=c(1,2), 
-        main="Forecast: HDD-based TFM")
-ts.plot(ts_res, forecast_ElecPrice$pred, col=c("black", "red"), lty=c(1,2), 
-        main="Forecast: Electricity Price-based TFM")
-ts.plot(ts_res, forecast_NGP$pred, col=c("black", "red"), lty =c(1,2),
-        main = "Forecast: NGP - based TFM")
+library(zoo)
+library(tseries)
+library(tidyverse)
+library(forecast)
+library(lubridate)
+library(TSA)
+interpolated_df <- complete_energy_data_R
+
+## breaking my dataset into time series objects for each dependent variable (that i will use for each TF model) 
+df <- interpolated_df
+df$month <- as.Date(df$Month, format="%Y-%m-%d")
+
+start_year <- as.numeric(format(df$Month[1], "%Y"))
+start_month <- as.numeric(format(df$Month[1], "%m"))
+
+## make predictor variables into their own time series 
+ts_totalCDD <- ts(df$totalCDD, start=c(start_year, start_month), frequency=12)
+ts_totalHDD <- ts(df$totalHDD, start=c(start_year, start_month), frequency=12)
+ts_ElectricityPrice <-ts(df$ElectricityPrice, start=c(start_year, start_month), frequency=12)
+ts_NGPresidential <-ts(df$NGPresidential, start=c(start_year, start_month), frequency=12)
+
+## make dependent variable into a time series 
+ts_res <- ts(df$TECresidential, start=c(start_year, start_month), frequency=12)
+
+## check time series for stationarity 
+adf.test(ts_res) #its stationary
+
+## visualize time series
+plot(ts_res)
+
+## need to prewhiten each predictor variable against its respective sector 
+## CDD
+arima_CDD <- auto.arima(ts_totalCDD)
+prewhitened_CDD <- residuals(arima_CDD)
+filtered_y_CDD <- residuals(Arima(ts_res, model=arima_CDD))
+## show ccf 
+ccf(prewhitened_CDD, filtered_y_CDD, main="CCF: Prewhitened CDD vs TECresidential")
+
+## HDD
+arima_HDD <- auto.arima(ts_totalHDD, seasonal = TRUE)
+## check acf of residuals , should be white noise 
+acf(arima_HDD$residuals)
+plot(arima_HDD$residuals)
+
+exoForecast_HDD <- forecast(arima_HDD, h=12, level =0.90)
+plot(exoForecast_HDD, include = 60)
+
+prewhitened_HDD <- residuals(arima_HDD)
+filtered_y_HDD <- residuals(Arima(ts_res, model=arima_HDD))
+
+## show ccf 
+ccf(prewhitened_HDD, filtered_y_HDD, main="CCF: Prewhitened HDD vs TECresidential")
+
+## Electricity Price 
+arima_ElectricityPrice <- auto.arima(ts_ElectricityPrice)
+
+acf(arima_ElectricityPrice$residuals)
+plot(arima_ElectricityPrice$residuals)
+
+exoForecast_ElectricityPrice <- forecast(arima_ElectricityPrice, h=12, level =0.90)
+plot(exoForecast_ElectricityPrice, include = 60)
+
+prewhitened_ElectricityPrice <- residuals(arima_ElectricityPrice)
+filtered_y_ElectricityPrice <- residuals(Arima(ts_res, model=arima_ElectricityPrice))
+## show ccf 
+ccf(prewhitened_ElectricityPrice, filtered_y_ElectricityPrice, main="CCF: Prewhitened Electricity Price vs TECresidential")
+
+## NGP residential 
+arima_NGPresidential <- auto.arima(ts_NGPresidential)
+
+acf(arima_NGPresidential$residuals)
+plot(arima_NGPresidential$residuals)
+
+exoForecast_NGP <- forecast(arima_NGPresidential, h=12, level =0.90)
+plot(exoForecast_NGP, include = 60)
+
+prewhitened_NGPresidential <- residuals(arima_NGPresidential)
+filtered_y_NGPresidential <- residuals(Arima(ts_res, model=arima_NGPresidential))
+## show ccf 
+ccf(prewhitened_NGPresidential, filtered_y_NGPresidential, main="CCF: Prewhitened NGP residential vs TECresidential")
+
+## residential tfms
+## HDD
+res_tfm_HDD <- arimax(ts_res, 
+                      xtransf = ts_totalHDD, 
+                      transfer = list(c(0,0)),
+                      order = c(1,0,1), 
+                      method = "ML")
+## check ccf of residuals 
+summary(res_tfm_HDD)
+AIC(res_tfm_HDD)
+## Electricity Price
+res_tfm_ElecPrice <- arimax(ts_res, 
+                            xtransf = stats::lag(ts_ElectricityPrice, -1), # Use stats::lag()
+                            transfer = list(c(0,0)), 
+                            order = c(1,0,1), 
+                            method = "ML")
+## check ccf of residuals 
+summary(res_tfm_ElecPrice)
+AIC(res_tfm_ElecPrice)
+## NGP
+res_tfm_NGP <- arimax(ts_res, 
+                      xtransf = ts_NGPresidential, 
+                      transfer = list(c(0,0)), 
+                      order = c(1,0,1), 
+                      method = "ML")
+
+summary(res_tfm_NGP)
+AIC(res_tfm_NGP)
+
+## visualize the TFM forecasts
+forecast_HDD <- forecast(res_tfm_HDD, h=12, xreg= exoForecast_HDD$mean)
+forecast_ElecPrice <- forecast(res_tfm_ElecPrice, h=12, xreg = exoForecast_ElectricityPrice$mean)
+forecast_NGP <- forecast(res_tfm_NGP, h=12, xreg= exoForecast_NGP$mean)
+forecast_HDD
+forecast_ElecPrice
+forecast_NGP
+
+## plot forecasts
+plot(forecast_HDD, include = 60)
+
