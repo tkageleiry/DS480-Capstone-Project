@@ -16,6 +16,44 @@ ts_HDD <- ts(df$totalHDD, start = c(start_year, start_month), frequency = 12)
 ts_ElecPrice <- ts(df$ElectricityPrice, start = c(start_year, start_month), frequency = 12)
 ts_NGP <- ts(df$NGPresidential, start = c(start_year, start_month), frequency = 12)
 
+
+## prewhiten each exo variable against the dependent variable
+
+## HDD
+model_HDD_exo <- auto.arima(ts_HDD)
+## check acf of residuals , should be white noise 
+acf(model_HDD_exo$residuals)
+plot(model_HDD_exo$residuals)
+
+
+prewhitened_HDD <- residuals(model_HDD_exo)
+filtered_y_HDD <- residuals(Arima(ts_res, model=model_HDD_exo))
+
+## show ccf 
+ccf(prewhitened_HDD, filtered_y_HDD, main="CCF: Prewhitened HDD vs TECresidential")
+
+## Electricity Price 
+model_Elec_exo <- auto.arima(ts_ElecPrice)
+
+acf(model_Elec_exo$residuals)
+plot(model_Elec_exo$residuals)
+
+prewhitened_ElecPrice <- residuals(model_Elec_exo)
+filtered_y_ElecPrice<- residuals(Arima(ts_res, model=model_Elec_exo))
+## show ccf 
+ccf(prewhitened_ElecPrice, filtered_y_ElecPrice, main="CCF: Prewhitened Electricity Price vs TECresidential")
+
+## NGP residential 
+model_NGP_exo <- auto.arima(ts_NGP)
+
+acf(model_NGP_exo$residuals)
+plot(model_NGP_exo$residuals)
+
+prewhitened_NGP <- residuals(model_NGP_exo)
+filtered_y_NGP <- residuals(Arima(ts_res, model=model_NGP_exo))
+## show ccf 
+ccf(prewhitened_NGP, filtered_y_NGP, main="CCF: Prewhitened NGP residential vs TECresidential")
+
 ## fit the transfer function models, one for each exogenous variable
 model_HDD <- auto.arima(ts_res, xreg = ts_HDD)
 model_ElecPrice <- auto.arima(ts_res, xreg = ts_ElecPrice)
@@ -27,13 +65,8 @@ AIC(model_ElecPrice)
 AIC(model_NGP)
 
 ## forecast the future variables of just the exogenous variables and get the point forecast
-model_HDD_exo <- auto.arima(ts_HDD)
 future_HDD <- forecast(model_HDD_exo, h = 12)$mean
-
-model_Elec_exo <- auto.arima(ts_ElecPrice)
 future_ElecPrice <- forecast(model_Elec_exo, h = 12)$mean
-
-model_NGP_exo <- auto.arima(ts_NGP)
 future_NGP <- forecast(model_NGP_exo, h = 12)$mean
 
 ## forecast the dependent variable using the predicted future values of exo variables
