@@ -26,11 +26,10 @@ acf(model_HDD_exo$residuals)
 plot(model_HDD_exo$residuals)
 
 
-prewhitened_HDD <- residuals(model_HDD_exo)
-filtered_y_HDD <- residuals(Arima(ts_res, model=model_HDD_exo))
+prewhitened_HDD <- prewhiten(ts_HDD, ts_res, model_HDD_exo, ylab = "CCF")
 
 ## show ccf 
-ccf(prewhitened_HDD, filtered_y_HDD, main="CCF: Prewhitened HDD vs TECresidential")
+ccf(prewhitened_HDD, ts_res, main="CCF: Prewhitened HDD vs TECresidential")
 
 ## Electricity Price 
 model_Elec_exo <- auto.arima(ts_ElecPrice)
@@ -38,10 +37,9 @@ model_Elec_exo <- auto.arima(ts_ElecPrice)
 acf(model_Elec_exo$residuals)
 plot(model_Elec_exo$residuals)
 
-prewhitened_ElecPrice <- residuals(model_Elec_exo)
-filtered_y_ElecPrice<- residuals(Arima(ts_res, model=model_Elec_exo))
+prewhitened_ElecPrice <- prewhiten(ts_ElecPrice, ts_res, model_Elec_exo, ylab = "CCF")
 ## show ccf 
-ccf(prewhitened_ElecPrice, filtered_y_ElecPrice, main="CCF: Prewhitened Electricity Price vs TECresidential")
+ccf(prewhitened_ElecPrice, ts_res, main="CCF: Prewhitened Electricity Price vs TECresidential")
 
 ## NGP residential 
 model_NGP_exo <- auto.arima(ts_NGP)
@@ -49,10 +47,9 @@ model_NGP_exo <- auto.arima(ts_NGP)
 acf(model_NGP_exo$residuals)
 plot(model_NGP_exo$residuals)
 
-prewhitened_NGP <- residuals(model_NGP_exo)
-filtered_y_NGP <- residuals(Arima(ts_res, model=model_NGP_exo))
+prewhitened_NGP <- prewhiten(ts_NGP, ts_res, model_NGP_exo, ylab = "CCF")
 ## show ccf 
-ccf(prewhitened_NGP, filtered_y_NGP, main="CCF: Prewhitened NGP residential vs TECresidential")
+ccf(prewhitened_NGP, ts_res, main="CCF: Prewhitened NGP residential vs TECresidential")
 
 ## fit the transfer function models, one for each exogenous variable
 model_HDD <- auto.arima(ts_res, xreg = ts_HDD)
